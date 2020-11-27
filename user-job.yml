@@ -1,0 +1,69 @@
+#####################################################################################################
+# Program : user-job.yml
+# Creator : Lee Sang Hyoung
+# Syntax  : ansible-playbook user-job.yml -t SSHKEY -e "host=faceservers user=rumfox" --ask-pass
+#           ansible-playbook user-job.yml -t CREATUSER -e "host=faceservers user=rumfox" --ask-pass
+#           ansible-playbook user-job.yml -t REMOVEUSER -e "host=faceservers user=rumfox" --ask-pass
+#####################################################################################################
+--- 
+- hosts: "{{ host }}"
+  user: root
+  vars:
+    - host: "{{ host }}"
+    - user: "{{ user }}"
+
+  tasks:
+    - name: Remove user --> "{{ user }}"
+      user:
+        name: "{{ user }}"
+        state: absent
+        remove: yes 
+      tags:
+        - REMOVEUSER
+
+    - name: Create user --> "{{ user }}"
+      user:
+        name: "{{ user }}"
+        password: "{{ '123bigdata' | password_hash('sha512') }}"
+        shell: /bin/bash
+        update_password: on_create
+      tags: 
+        - CREATUSER
+
+    - name: Ensure user information 
+      user: 
+        name="{{ user }}" 
+        comment="Created by Ansible" 
+        group="{{ user }}"
+      tags:
+        - CREATUSER
+
+    - name: Ensure directory exists
+      file:
+        path: /home/"{{ user }}"/.ssh
+        state: directory
+        group: "{{ user }}"
+        owner: "{{ user }}"
+        mode: 0755
+      tags:
+        - SSHKEY
+
+    - name: Ensure file exists
+      copy:
+        content: ""
+        dest: /home/"{{ user }}"/.ssh/authorized_keys
+        force: no
+        group: "{{ user }}"
+        owner: "{{ user }}"
+        mode: 0755
+      tags:
+        - SSHKEY
+
+    - name: Upload SSH key 
+      authorized_key: 
+        user: "{{ user }}" 
+        state: present
+        key: "{{ lookup('file', '/home/{{ user }}/.ssh/id_rsa.pub') }}"
+      tags:
+        - SSHKEY
+
