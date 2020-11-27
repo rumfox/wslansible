@@ -1,10 +1,13 @@
-#####################################################################################################
+######################################################################################################
+#
 # Program : user-job.yml
 # Creator : Lee Sang Hyoung
-# Syntax  : ansible-playbook user-job.yml -t SSHKEY -e "host=faceservers user=rumfox" --ask-pass
-#           ansible-playbook user-job.yml -t CREATUSER -e "host=faceservers user=rumfox" --ask-pass
+# Syntax  : ansible-playbook user-job.yml -t SSHKEY     -e "host=faceservers user=rumfox" --ask-pass
+#           ansible-playbook user-job.yml -t CREATUSER  -e "host=faceservers user=rumfox" --ask-pass
 #           ansible-playbook user-job.yml -t REMOVEUSER -e "host=faceservers user=rumfox" --ask-pass
-#####################################################################################################
+#           ansible-playbook user-job.yml -t SUDOER     -e "host=faceservers user=rumfox" --ask-pass
+#
+######################################################################################################
 --- 
 - hosts: "{{ host }}"
   user: root
@@ -66,4 +69,26 @@
         key: "{{ lookup('file', '/home/{{ user }}/.ssh/id_rsa.pub') }}"
       tags:
         - SSHKEY
+
+    - name: Make sure we have a 'wheel' group
+      group:
+        name: wheel
+        state: present
+      tags:
+        - SUDOER
+
+    - name: Allow 'wheel' group to have passwordless sudo
+      lineinfile:
+        dest: /etc/sudoers
+        state: present
+        regexp: '^%wheel'
+        line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+        validate: 'visudo -cf %s'
+      tags:
+        - SUDOER
+
+    - name: Add sudoers users to wheel group
+      user: name="{{ user }}" groups=wheel append=yes state=present createhome=yes
+      tags:
+        - SUDOER
 
